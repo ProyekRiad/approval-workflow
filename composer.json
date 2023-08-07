@@ -1,0 +1,18 @@
+{
+    "name": "idemas/approval-workflow",
+    "autoload": {
+        "psr-4": {
+            "Idemas\\ApprovalWorkflow\\": "src/",
+            "Idemas\\ApprovalWorkflow\\Repository\\": "src/repository/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Riad",
+            "email": "proyekriad@gmail.com"
+        }
+    ],
+    "require": {
+        "symfony/expression-language": "^5.4"
+    }
+}
