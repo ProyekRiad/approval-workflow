@@ -2,8 +2,7 @@
     "name": "idemas/approval-workflow",
     "autoload": {
         "psr-4": {
-            "Idemas\\ApprovalWorkflow\\": "src/",
-            "Idemas\\ApprovalWorkflow\\Repository\\": "src/repository/"
+            "Idemas\\": "src/"
         }
     },
     "authors": [
