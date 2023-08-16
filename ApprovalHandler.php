@@ -13,6 +13,8 @@ use const Idemas\ApprovalWorkflow\Repository\HFLAG_APPROVED;
 use const Idemas\ApprovalWorkflow\Repository\HFLAG_CREATED;
 use const Idemas\ApprovalWorkflow\Repository\HFLAG_DONE;
 use const Idemas\ApprovalWorkflow\Repository\HFLAG_REJECTED;
+use const Idemas\ApprovalWorkflow\Repository\HFLAG_SKIP;
+use const Idemas\ApprovalWorkflow\Repository\HFLAG_RESET;
 
 class ApprovalHandler
 {
@@ -20,6 +22,7 @@ class ApprovalHandler
   static string $EXC_FLOW_NOT_FOUND = 'exc_flow_not_found';
   static string $EXC_PERMISSION_DENIED = 'exc_permission_denied';
   static string $EXC_APPROVAL_NOT_RUNNING = 'exc_approval_not_running';
+  static string $EXC_APPROVAL_NOT_REJECTED = 'exc_approval_not_rejected';
 
   var $db;
 
@@ -145,12 +148,13 @@ class ApprovalHandler
 
       if (count($approvers) <= 0) {
         // BUAT HISTORY INFORMASI STEP DILEWATI
+        // sleep(1); // sleep supaya history bisa berurut jika ada history yang berbarengan
         ApprovalHistoryRepository::insert(
           $this->db,
           $approvalId,
           null,
           "Proses {$nextStep['name']} dilewati karena tidak ada pemberi persetujuan di tahap ini.",
-          HFLAG_DONE,
+          HFLAG_SKIP,
           null,
           null
         );
@@ -165,6 +169,7 @@ class ApprovalHandler
 
       // Jika next step null, berarti proses sudah selesai
       // Buat history bahwa sudah approval sudah selesai
+      // sleep(1); // sleep supaya history bisa berurut jika ada history yang berbarengan
       ApprovalHistoryRepository::insert(
         $this->db,
         $approvalId,
@@ -205,6 +210,33 @@ class ApprovalHandler
       $userId,
       "Persetujuan pada tahap {$data['flow_step_name']} ditolak oleh {$user['name']}.",
       HFLAG_REJECTED,
+      $notes,
+      $file
+    );
+
+    // KEMBALIKAN STATUS APPROVAL TERBARU
+    return ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+  }
+
+  public function reset($approvalId, $userId, $notes, $file)
+  {
+    // AMBIL STATUS APPROVAL TERAKHIR
+    $data = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+
+    // TOLAK JIKA DOKUMEN SUDAH CLOSE
+    if ($data['status'] != 'REJECTED')
+      throw new Exception(ApprovalHandler::$EXC_APPROVAL_NOT_REJECTED);
+
+    // UBAH STATUS APPROVAL MENJADI 'REJECTED'
+    ApprovalRepository::update($this->db, $approvalId, 'ON_PROGRESS', null);
+
+    // BUAT HISTORY APPROVAL DIREJECT
+    ApprovalHistoryRepository::insert(
+      $this->db,
+      $approvalId,
+      $userId,
+      "Pengajuan ulang persetujuan dimulai",
+      HFLAG_RESET,
       $notes,
       $file
     );
