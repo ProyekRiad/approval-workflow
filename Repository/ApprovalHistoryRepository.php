@@ -25,7 +25,7 @@ VALUES (:approval_id, :user_id, :title, :flag, :notes, :file, :date_time)
       ':flag' => $flag,
       ':notes' => $notes,
       ':file' => $file,
-      ':date_time' => date('Y-m-d h:i:s')
+      ':date_time' => time()
     ]);
   }
 }
