@@ -109,7 +109,7 @@ class ApprovalHandler
     $currentStepId = $approval['flow_step_id'];
     $nextStep = null;
     if ($currentStepId == null) {
-      $nextStep = $steps[0];
+      $nextStep = count($steps) > 0 ? $steps[0] : null;
     } else {
       $currentStep = array_column($steps, null, 'id')[$currentStepId];
       foreach ($steps as $step) {
