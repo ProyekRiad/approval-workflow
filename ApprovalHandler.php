@@ -223,12 +223,15 @@ class ApprovalHandler
     // AMBIL STATUS APPROVAL TERAKHIR
     $data = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
 
-    // TOLAK JIKA DOKUMEN SUDAH CLOSE
+    // TOLAK JIKA DOKUMEN BUKAN DOKUMEN REJECT
     if ($data['status'] != 'REJECTED')
       throw new Exception(ApprovalHandler::$EXC_APPROVAL_NOT_REJECTED);
 
-    // UBAH STATUS APPROVAL MENJADI 'REJECTED'
+    // UBAH STATUS APPROVAL MENJADI 'ON_PROGRESS'
     ApprovalRepository::update($this->db, $approvalId, 'ON_PROGRESS', null);
+
+    // PROSES KE STEP SELANJUTNYA
+    $this->checkNextStep($approvalId);
 
     // BUAT HISTORY APPROVAL DIREJECT
     ApprovalHistoryRepository::insert(
