@@ -24,7 +24,7 @@ class FlowRepository
   {
     if (!$params)
       return null;
-    array_key_exists($key, $params) ? $params[$key] : null;
+    return array_key_exists($key, $params) ? $params[$key] : null;
   }
 
   public static function getStepUsers($db, $stepId, $approvalParemeters)
