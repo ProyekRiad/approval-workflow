@@ -116,6 +116,43 @@ WHERE
     return $result != null;
   }
 
+  public static function getCurrentApprovers($db, $approvalId): array
+  {
+    $stmt = $db->prepare('
+SELECT
+	u.id as user_id,
+	u.username,
+	u.email,
+	u.fcmToken
+FROM
+	`wf_approval_active_users` waau
+INNER JOIN `user` u ON
+	u.id = waau.user_id
+WHERE
+	`waau`.`approval_id` = :approval_id
+');
+    $stmt->execute([':approval_id' => $approvalId]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  public static function getOwner($db, $approvalId): array
+  {
+    $stmt = $db->prepare('
+SELECT
+	u.id as user_id,
+	u.username,
+	u.email,
+	u.fcmToken
+FROM
+	`user` u
+	INNER JOIN `wf_approvals` wa ON wa.user_id = u.id  
+WHERE
+	`wa`.`id` = :approval_id
+');
+    $stmt->execute([':approval_id' => $approvalId]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+  }
+
   // Menghapus data approver yang lama, dan menggantikan dengan approver yang baru
   public static function assignApprovers($db, $approvalId, $approvers)
   {
@@ -124,9 +161,11 @@ WHERE
     $stmt->execute([':approval_id' => $approvalId]);
 
     // Assign approvers yang baru
-    $stmt = $db->prepare("INSERT INTO `wf_approval_active_users` (`approval_id`, `user_id`) VALUES (:approval_id, :user_id)");
-    foreach ($approvers as $approver) {
-      $stmt->execute([':approval_id' => $approvalId, ':user_id' => $approver['id']]);
+    if ($approvers && count($approvers) > 0) {
+      $stmt = $db->prepare("INSERT INTO `wf_approval_active_users` (`approval_id`, `user_id`) VALUES (:approval_id, :user_id)");
+      foreach ($approvers as $approver) {
+        $stmt->execute([':approval_id' => $approvalId, ':user_id' => $approver['id']]);
+      }
     }
   }
 }

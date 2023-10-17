@@ -37,25 +37,46 @@ class FlowRepository
     for ($i = 0; $i < count($approvers); $i++) {
       $approver = $approvers[$i];
 
+      // Handle Type USER
       if ($approver['type'] == 'USER') {
         array_push($tmp, $approver['data']);
+
+        // Handle Type GROUP
       } else if ($approver['type'] == 'GROUP') {
         $stmt = $db->prepare('SELECT user_id FROM `wf_approver_group_users` WHERE `approver_group_id` = :approver_group_id');
         $stmt->execute([':approver_group_id' => $approver['data']]);
         $rows = $stmt->fetchAll(PDO::FETCH_COLUMN | PDO::FETCH_UNIQUE, 0);
         array_push($tmp, ...$rows);
+
+        // Handle Type SYSTEM_GROUP
       } else if ($approver['type'] == 'SYSTEM_GROUP') {
         $data = $approver['data'];
+
+        // Handle department-manager
         if ($data == 'department-manager') {
-          $stmt = $db->prepare('SELECT user_id FROM `wf_department_users` WHERE `department_id` = :department_id AND `job_level` = \'MANAGER\'');
-          $stmt->execute([':department_id' => self::getParamValue($approvalParemeters, 'departmentId')]);
-          $rows = $stmt->fetchAll(PDO::FETCH_COLUMN | PDO::FETCH_UNIQUE, 0);
-          array_push($tmp, ...$rows);
+          $overrideUserId = self::getParamValue($approvalParemeters, 'overrideManagerUserId');
+          if ($overrideUserId) {
+            array_push($tmp, $overrideUserId);
+          } else {
+            $stmt = $db->prepare('SELECT user_id FROM `wf_department_users` WHERE `department_id` = :department_id AND `job_level` = \'MANAGER\'');
+            $stmt->execute([':department_id' => self::getParamValue($approvalParemeters, 'departmentId')]);
+            $rows = $stmt->fetchAll(PDO::FETCH_COLUMN | PDO::FETCH_UNIQUE, 0);
+            array_push($tmp, ...$rows);
+          }
+
+          // Handle department-head
         } else if ($data == 'department-head') {
-          $stmt = $db->prepare('SELECT user_id FROM `wf_department_users` WHERE `department_id` = :department_id AND `job_level` = \'HEAD\'');
-          $stmt->execute([':department_id' => self::getParamValue($approvalParemeters, 'departmentId')]);
-          $rows = $stmt->fetchAll(PDO::FETCH_COLUMN | PDO::FETCH_UNIQUE, 0);
-          array_push($tmp, ...$rows);
+          $overrideUserId = self::getParamValue($approvalParemeters, 'overrideHeadUserId');
+          if ($overrideUserId) {
+            array_push($tmp, $overrideUserId);
+          } else {
+            $stmt = $db->prepare('SELECT user_id FROM `wf_department_users` WHERE `department_id` = :department_id AND `job_level` = \'HEAD\'');
+            $stmt->execute([':department_id' => self::getParamValue($approvalParemeters, 'departmentId')]);
+            $rows = $stmt->fetchAll(PDO::FETCH_COLUMN | PDO::FETCH_UNIQUE, 0);
+            array_push($tmp, ...$rows);
+          }
+
+          // Handle asset-coordinator
         } else if ($data == 'asset-coordinator') {
           $stmt = $db->prepare('SELECT user_id FROM `wf_asset_coordinator_users` WHERE `asset_category_id` = :asset_category_id');
           $stmt->execute([':asset_category_id' => self::getParamValue($approvalParemeters, 'assetCategoryId')]);

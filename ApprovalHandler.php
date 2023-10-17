@@ -31,6 +31,21 @@ class ApprovalHandler
     $this->db = $db;
   }
 
+  /**
+   * Fungsi ini digunakan untuk menginisiasi approval
+   * 
+   * $flowType : Identifier flow
+   * $userId : ID user, user ini akan menjadi owner dari approval yang berjalan
+   * $parameters : 
+   * Parameters bisa diisi dengan data (array) bebas sesuai dengan kebutuhan. Tapi ada
+   * Field-field default sebagai berikut :
+   * - departmentId : Wajib diisi jika di flow menggunakan step user dengan type SYSTEM_GROUP -> department-manager atau department-head
+   * - overrideManagerUserId : Bisa diisi dengan user id untuk meng-override approver department-manager. System akan mengabaikan 
+   *   konfigurasi flow dan akan menggunakan user id yang diberikan sebagai approver.
+   * - overrideHeadUserId : Bisa diisi dengan user id untuk meng-override approver department-head. System akan mengabaikan 
+   *   konfigurasi flow dan akan menggunakan user id yang diberikan sebagai approver.
+   * - assetCategoryId : Wajib diisi jika di flow menggunakan step user dengan type SYSTEM_GROUP -> asset-coordinator
+   */
   public function start($flowType, int $userId, $parameters)
   {
     // CHECK APAKAH USER ADA
@@ -58,12 +73,26 @@ class ApprovalHandler
     );
 
     // PROSES KE STEP SELANJUTNYA
+    $previousApprovers = ApprovalRepository::getCurrentApprovers($this->db, $approvalId);
     $this->checkNextStep($approvalId);
+    $nextApprovers = ApprovalRepository::getCurrentApprovers($this->db, $approvalId);
 
     // KEMBALIKAN STATUS APPROVAL TERBARU
-    return ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+    $tmp = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+    $tmp['stakeholders']['owner'] = ApprovalRepository::getOwner($this->db, $approvalId);
+    $tmp['stakeholders']['previousApprovers'] = $previousApprovers;
+    $tmp['stakeholders']['currentApprovers'] = $nextApprovers;
+    return $tmp;
   }
 
+  /**
+   * Fungsi ini digunakan untuk menyetujui tahapan yang sedang aktif
+   * 
+   * $approvalId : ID approval yang didapatkan saat menginisiasi approval
+   * $userId : ID user yang melakukan approval
+   * $notes : Catatan approval (opsional)
+   * $file : Berkas pendukung (opsional)
+   */
   public function approve($approvalId, $userId, $notes, $file)
   {
     // CHECK APAKAH USER ADA
@@ -94,10 +123,16 @@ class ApprovalHandler
     );
 
     // PROSES KE STEP SELANJUTNYA
+    $previousApprovers = ApprovalRepository::getCurrentApprovers($this->db, $approvalId);
     $this->checkNextStep($approvalId);
+    $nextApprovers = ApprovalRepository::getCurrentApprovers($this->db, $approvalId);
 
     // KEMBALIKAN STATUS APPROVAL TERBARU
-    return ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+    $tmp = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+    $tmp['stakeholders']['owner'] = ApprovalRepository::getOwner($this->db, $approvalId);
+    $tmp['stakeholders']['previousApprovers'] = $previousApprovers;
+    $tmp['stakeholders']['currentApprovers'] = $nextApprovers;
+    return $tmp;
   }
 
   private function checkNextStep($approvalId)
@@ -163,6 +198,9 @@ class ApprovalHandler
         $this->checkNextStep($approvalId);
       }
     } else {
+      // REMOVE PREVIOUS APPROVER
+      ApprovalRepository::assignApprovers($this->db, $approvalId, []);
+
       // JIKA next step tidak ditemukan, berarti approval sudah selesai
       // TANDAI APPROVAL MENJADI APPROVED
       ApprovalRepository::update($this->db, $approvalId, 'APPROVED', null);
@@ -182,6 +220,14 @@ class ApprovalHandler
     }
   }
 
+  /**
+   * Fungsi ini digunakan untuk menolak tahapan yang sedang aktif
+   * 
+   * $approvalId : ID approval yang didapatkan saat menginisiasi approval
+   * $userId : ID user yang melakukan approval
+   * $notes : Catatan approval (opsional)
+   * $file : Berkas pendukung (opsional)
+   */
   public function reject($approvalId, $userId, $notes, $file)
   {
     // CHECK APAKAH USER ADA
@@ -214,10 +260,26 @@ class ApprovalHandler
       $file
     );
 
+    $previousApprovers = ApprovalRepository::getCurrentApprovers($this->db, $approvalId);
+    $nextApprovers = null;
+
     // KEMBALIKAN STATUS APPROVAL TERBARU
-    return ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+    $tmp = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+    $tmp['stakeholders']['owner'] = ApprovalRepository::getOwner($this->db, $approvalId);
+    $tmp['stakeholders']['previousApprovers'] = $previousApprovers;
+    $tmp['stakeholders']['currentApprovers'] = $nextApprovers;
+    return $tmp;
   }
 
+  /**
+   * Fungsi ini digunakan untuk mereset status approval yang REJECTED (ditolak) menjadi APPROVED. 
+   * Approval akan dimulai kembali dari tahapan pertama.
+   * 
+   * $approvalId : ID approval yang didapatkan saat menginisiasi approval
+   * $userId : ID user yang melakukan approval
+   * $notes : Catatan approval (opsional)
+   * $file : Berkas pendukung (opsional)
+   */
   public function reset($approvalId, $userId, $notes, $file)
   {
     // AMBIL STATUS APPROVAL TERAKHIR
@@ -244,8 +306,15 @@ class ApprovalHandler
       $file
     );
 
+    $previousApprovers = null;
+    $nextApprovers = ApprovalRepository::getCurrentApprovers($this->db, $approvalId);
+
     // KEMBALIKAN STATUS APPROVAL TERBARU
-    return ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+    $tmp = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+    $tmp['stakeholders']['owner'] = ApprovalRepository::getOwner($this->db, $approvalId);
+    $tmp['stakeholders']['previousApprovers'] = $previousApprovers;
+    $tmp['stakeholders']['currentApprovers'] = $nextApprovers;
+    return $tmp;
   }
 
   public function rebuildApprovers()
