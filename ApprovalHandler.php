@@ -132,6 +132,9 @@ class ApprovalHandler
     $tmp['stakeholders']['owner'] = ApprovalRepository::getOwner($this->db, $approvalId);
     $tmp['stakeholders']['previousApprovers'] = $previousApprovers;
     $tmp['stakeholders']['currentApprovers'] = $nextApprovers;
+    if (empty($nextApprovers)) {
+      $tmp['stakeholders']['steps'] = $this->getAllStepInfo($approvalId);
+    }
     return $tmp;
   }
 
@@ -152,7 +155,7 @@ class ApprovalHandler
       $currentStep = array_column($steps, null, 'id')[$currentStepId];
       foreach ($steps as $step) {
         if ($step['order'] > $currentStep['order']) {
-          $condition = trim($step['condition']);
+          $condition = trim($step['condition'] ?? '');
 
           // Jika kondisi tidak diisi, maka langsung gunakan step sebagai next step
           if (is_null($condition) || $condition == '') {
@@ -218,6 +221,41 @@ class ApprovalHandler
         null
       );
     }
+  }
+
+  public function getAllStepInfo($approvalId): array
+  {
+    // AMBIL DATA APPROVAL TERBARU
+    $approval = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+
+    // AMBIL DAFTAR STEPS SESUAI FLOW ID
+    $steps = FlowRepository::getStepsById($this->db, $approval['flow_id']);
+
+    $filteredSteps = array();
+    foreach ($steps as $step) {
+      $condition = trim($step['condition'] ?? '');
+
+      // Jika kondisi tidak diisi, maka langsung gunakan step sebagai next step
+      if (is_null($condition) || $condition == '') {
+        array_push($filteredSteps, $step);
+        continue;
+      }
+
+      // Check kondisi, jika tidak memenuhi maka skip
+      $expressionLanguage = new ExpressionLanguage();
+      $r = $expressionLanguage->evaluate($condition, $approval['parameters']);
+      if (is_bool($r) && $r == true) {
+        array_push($filteredSteps, $step);
+        continue;
+      }
+    }
+
+    // Loop untuk ambil daftar approver
+    for ($i = 0; $i < count($filteredSteps); $i++) {
+      $filteredSteps[$i]['approvers'] = FlowRepository::getStepUsers($this->db, $step['id'], $approval['parameters']);
+    }
+
+    return $filteredSteps;
   }
 
   /**

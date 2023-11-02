@@ -34,7 +34,8 @@ SELECT
 	`u`.`id`,
 	`u`.`email`,
 	`u`.`username`,
-	`p`.`name`
+	`p`.`name`,
+	`u`.`fcmToken`
 from
 	`user` u
 INNER JOIN `profile` p ON
