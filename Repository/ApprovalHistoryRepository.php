@@ -6,6 +6,7 @@ const HFLAG_CREATED = "created";
 const HFLAG_RESET = "reset";
 const HFLAG_APPROVED = "approved";
 const HFLAG_REJECTED = "rejected";
+const HFLAG_SYSTEM_REJECTED = "system_rejected";
 const HFLAG_DONE = "done";
 const HFLAG_SKIP = "skip";
 

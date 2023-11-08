@@ -15,6 +15,7 @@ use const Idemas\ApprovalWorkflow\Repository\HFLAG_DONE;
 use const Idemas\ApprovalWorkflow\Repository\HFLAG_REJECTED;
 use const Idemas\ApprovalWorkflow\Repository\HFLAG_SKIP;
 use const Idemas\ApprovalWorkflow\Repository\HFLAG_RESET;
+use const Idemas\ApprovalWorkflow\Repository\HFLAG_SYSTEM_REJECTED;
 
 class ApprovalHandler
 {
@@ -306,6 +307,58 @@ class ApprovalHandler
     $tmp['stakeholders']['owner'] = ApprovalRepository::getOwner($this->db, $approvalId);
     $tmp['stakeholders']['previousApprovers'] = $previousApprovers;
     $tmp['stakeholders']['currentApprovers'] = $nextApprovers;
+    return $tmp;
+  }
+
+  /**
+   * Fungsi ini digunakan untuk menolak/mereset approval di status apa pun,
+   * termasuk status COMPLETE.
+   * Action akan tersimpan di dalam log, dengan subjek utamanya adalah Sistem
+   * dan user yang tercatat di log adalah user yang memiliki tanggungjawab
+   * atas terjadinya action ini.
+   * 
+   * Contoh kasus penggunaannya adalah, jika ada penolakan di salah satu approval
+   * yang menjadi bagian dari sebuah group approval maka semua approval
+   * di dalam group tersebut akan direject/direset.
+   * 
+   * $approvalId : ID approval yang didapatkan saat menginisiasi approval
+   * $relatedUserId : ID user yang mentrigger penyebab reject by system. Siapa pun bisa 
+   * menjadi penyebab action ini dieksekusi. Jadi tidak ada pengecekan role approver.
+   * $notes : Catatan approval (opsional)
+   * $file : Berkas pendukung (opsional)
+   */
+  public function rejectBySystem($approvalId, $relatedUserId, $notes, $file)
+  {
+    // CHECK APAKAH USER ADA
+    $user = UserRepository::getById($this->db, $relatedUserId);
+    if ($user == null)
+      throw new Exception(ApprovalHandler::$EXC_USER_NOT_FOUND);
+
+    $data = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+
+    // UBAH STATUS APPROVAL MENJADI 'REJECTED'
+    ApprovalRepository::update($this->db, $approvalId, 'REJECTED', null);
+
+    // BUAT HISTORY APPROVAL DIREJECT
+    ApprovalHistoryRepository::insert(
+      $this->db,
+      $approvalId,
+      $relatedUserId,
+      "Persetujuan ditolak dan direset oleh System.",
+      HFLAG_SYSTEM_REJECTED,
+      $notes,
+      $file
+    );
+
+    $previousApprovers = ApprovalRepository::getCurrentApprovers($this->db, $approvalId);
+    $nextApprovers = null;
+
+    // KEMBALIKAN STATUS APPROVAL TERBARU
+    $tmp = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+    $tmp['stakeholders']['owner'] = ApprovalRepository::getOwner($this->db, $approvalId);
+    $tmp['stakeholders']['previousApprovers'] = $previousApprovers;
+    $tmp['stakeholders']['currentApprovers'] = $nextApprovers;
+    $tmp['stakeholders']['steps'] = $this->getAllStepInfo($approvalId);
     return $tmp;
   }
 
