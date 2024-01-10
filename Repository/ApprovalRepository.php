@@ -32,17 +32,18 @@ WHERE
     ];
   }
 
-  public static function getRunningApprovals($db)
+  public static function getRunningApprovals($db, $companyId)
   {
     $stmt = $db->prepare('
 SELECT
-	a.*
+	`a`.*
 FROM
 	`wf_approvals` a
 WHERE 
-  a.`status` = \'ON_PROGRESS\'
+  `a`.`companyId` = :companyId AND
+  `a`.`status` = \'ON_PROGRESS\'
 ');
-    $stmt->execute();
+    $stmt->execute([$companyId]);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $tmp = [];
@@ -59,21 +60,25 @@ WHERE
     return $tmp;
   }
 
-  public static function insert($db, $flowId, $userId, $parameters): int
+  public static function insert($db, $companyId, $flowId, $userId, $parameters): int
   {
     $stmt = $db->prepare('
 INSERT
 	INTO
-	`wf_approvals` (`flow_id`,
-	`status`,
-	`user_id`,
-	`parameters`)
-VALUES (:flow_id,
+	`wf_approvals` (
+    `company_id`,
+    `flow_id`,
+	  `status`,
+	  `user_id`,
+	  `parameters`
+  )
+VALUES (:company_id, :flow_id,
 \'ON_PROGRESS\',
 :user_id,
 :parameters)
     ');
     $stmt->execute([
+      ':company_id' => $companyId,
       ':flow_id' => $flowId,
       ':user_id' => $userId,
       ':parameters' => $parameters ? json_encode($parameters) : null,

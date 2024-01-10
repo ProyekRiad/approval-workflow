@@ -26,10 +26,12 @@ class ApprovalHandler
   static string $EXC_APPROVAL_NOT_REJECTED = 'exc_approval_not_rejected';
 
   var $db;
+  var $companyId;
 
-  public function __construct($db)
+  public function __construct($db, $companyId)
   {
     $this->db = $db;
+    $this->companyId = $companyId;
   }
 
   /**
@@ -55,12 +57,12 @@ class ApprovalHandler
       throw new Exception(ApprovalHandler::$EXC_USER_NOT_FOUND);
 
     // AMBIL DATA FLOW SESUAI $flowType
-    $flow = FlowRepository::getByType($this->db, $flowType);
+    $flow = FlowRepository::getByType($this->db, $this->companyId, $flowType);
     if ($flow == null)
       throw new Exception(ApprovalHandler::$EXC_FLOW_NOT_FOUND);
 
     // INSERT DATA APPROVAL
-    $approvalId = ApprovalRepository::insert($this->db, $flow['id'], $userId, $parameters);
+    $approvalId = ApprovalRepository::insert($this->db, $this->companyId, $flow['id'], $userId, $parameters);
 
     // BUAT HISTORY APPROVAL DIBUAT
     ApprovalHistoryRepository::insert(
@@ -75,7 +77,23 @@ class ApprovalHandler
 
     // PROSES KE STEP SELANJUTNYA
     $previousApprovers = ApprovalRepository::getCurrentApprovers($this->db, $approvalId);
-    $this->checkNextStep($approvalId);
+    if ($flow['is_active'] != 0) {
+      $this->checkNextStep($approvalId);
+    } else {
+      // UBAH STATUS APPROVAL MENJADI 'APPROVED'
+      ApprovalRepository::update($this->db, $approvalId, 'APPROVED', null);
+
+      // BUAT HISTORY APPROVAL DIREJECT
+      ApprovalHistoryRepository::insert(
+        $this->db,
+        $approvalId,
+        $userId,
+        "Persetujuan dianggap selesai karena flow persetujuan NON-AKTIF.",
+        HFLAG_DONE,
+        null,
+        null
+      );
+    }
     $nextApprovers = ApprovalRepository::getCurrentApprovers($this->db, $approvalId);
 
     // KEMBALIKAN STATUS APPROVAL TERBARU
@@ -101,16 +119,16 @@ class ApprovalHandler
     if ($user == null)
       throw new Exception(ApprovalHandler::$EXC_USER_NOT_FOUND);
 
-    // VALIDASI PERMISSION APPROVER SESUAI $userId
-    if (!ApprovalRepository::isUserHasPermission($this->db, $approvalId, $userId))
-      throw new Exception(ApprovalHandler::$EXC_PERMISSION_DENIED);
-
     // AMBIL STATUS APPROVAL TERAKHIR
     $data = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
 
     // TOLAK JIKA DOKUMEN SUDAH CLOSE
     if ($data['status'] != 'ON_PROGRESS')
       throw new Exception(ApprovalHandler::$EXC_APPROVAL_NOT_RUNNING);
+
+    // VALIDASI PERMISSION APPROVER SESUAI $userId
+    if (!ApprovalRepository::isUserHasPermission($this->db, $approvalId, $userId))
+      throw new Exception(ApprovalHandler::$EXC_PERMISSION_DENIED);
 
     // BUAT HISTORY APPROVAL
     ApprovalHistoryRepository::insert(
@@ -274,16 +292,16 @@ class ApprovalHandler
     if ($user == null)
       throw new Exception(ApprovalHandler::$EXC_USER_NOT_FOUND);
 
-    // VALIDASI PERMISSION APPROVER SESUAI $userId
-    if (!ApprovalRepository::isUserHasPermission($this->db, $approvalId, $userId))
-      throw new Exception(ApprovalHandler::$EXC_PERMISSION_DENIED);
-
     // AMBIL STATUS APPROVAL TERAKHIR
     $data = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
 
     // TOLAK JIKA DOKUMEN SUDAH CLOSE
     if ($data['status'] != 'ON_PROGRESS')
       throw new Exception(ApprovalHandler::$EXC_APPROVAL_NOT_RUNNING);
+
+    // VALIDASI PERMISSION APPROVER SESUAI $userId
+    if (!ApprovalRepository::isUserHasPermission($this->db, $approvalId, $userId))
+      throw new Exception(ApprovalHandler::$EXC_PERMISSION_DENIED);
 
     // UBAH STATUS APPROVAL MENJADI 'REJECTED'
     ApprovalRepository::update($this->db, $approvalId, 'REJECTED', null);
@@ -410,7 +428,7 @@ class ApprovalHandler
 
   public function rebuildApprovers()
   {
-    $approvals = ApprovalRepository::getRunningApprovals($this->db);
+    $approvals = ApprovalRepository::getRunningApprovals($this->db, $this->companyId);
 
     foreach ($approvals as $approval) {
       // AMBIL DAFTAR APPROVER

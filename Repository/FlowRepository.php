@@ -6,10 +6,10 @@ use PDO;
 
 class FlowRepository
 {
-  public static function getByType($db, $type)
+  public static function getByType($db, $companyId, $type)
   {
-    $stmt = $db->prepare('SELECT * FROM `wf_flows` WHERE `type` = :type');
-    $stmt->execute([':type' => $type]);
+    $stmt = $db->prepare('SELECT * FROM `wf_flows` WHERE `company_id` = :companyId AND `type` = :type');
+    $stmt->execute([':companyId' => $companyId, ':type' => $type]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
   }
 
