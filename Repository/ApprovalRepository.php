@@ -40,10 +40,10 @@ SELECT
 FROM
 	`wf_approvals` a
 WHERE 
-  `a`.`companyId` = :companyId AND
+  `a`.`company_id` = :companyId AND
   `a`.`status` = \'ON_PROGRESS\'
 ');
-    $stmt->execute([$companyId]);
+    $stmt->execute([':companyId' => $companyId]);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $tmp = [];
