@@ -86,22 +86,41 @@ VALUES (:company_id, :flow_id,
 
     return $db->lastInsertId();
   }
-  public static function update($db, $approvalId, $status, $flowStepId)
+  public static function update($db, $approvalId, $status, $flowStepId, $parameters)
   {
-    $stmt = $db->prepare('
+    if ($parameters) {
+      $stmt = $db->prepare('
 UPDATE
-	`wf_approvals`
+`wf_approvals`
 SET
-	`flow_step_id` = :flow_step_id,
-	`status` = :status
+`flow_step_id` = :flow_step_id,
+`status` = :status
+`parameters` = :parameters
 WHERE
-	`id` = :approval_id
-    ');
-    $stmt->execute([
-      ':approval_id' => $approvalId,
-      ':status' => $status,
-      ':flow_step_id' => $flowStepId,
-    ]);
+`id` = :approval_id
+  ');
+      $stmt->execute([
+        ':approval_id' => $approvalId,
+        ':status' => $status,
+        ':flow_step_id' => $flowStepId,
+        ':parameters' => json_encode($parameters)
+      ]);
+    } else {
+      $stmt = $db->prepare('
+UPDATE
+`wf_approvals`
+SET
+`flow_step_id` = :flow_step_id,
+`status` = :status
+WHERE
+`id` = :approval_id
+  ');
+      $stmt->execute([
+        ':approval_id' => $approvalId,
+        ':status' => $status,
+        ':flow_step_id' => $flowStepId,
+      ]);
+    }
   }
 
   public static function isUserHasPermission($db, $approvalId, $userId): bool

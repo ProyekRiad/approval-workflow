@@ -81,7 +81,7 @@ class ApprovalHandler
       $this->checkNextStep($approvalId);
     } else {
       // UBAH STATUS APPROVAL MENJADI 'APPROVED'
-      ApprovalRepository::update($this->db, $approvalId, 'APPROVED', null);
+      ApprovalRepository::update($this->db, $approvalId, 'APPROVED', null, null);
 
       // BUAT HISTORY APPROVAL DIREJECT
       ApprovalHistoryRepository::insert(
@@ -195,7 +195,7 @@ class ApprovalHandler
 
     if ($nextStep != null) {
       // SIMPAN NEXT STEP
-      ApprovalRepository::update($this->db, $approvalId, 'ON_PROGRESS', $nextStep['id']);
+      ApprovalRepository::update($this->db, $approvalId, 'ON_PROGRESS', $nextStep['id'], null);
 
       // AMBIL DAFTAR APPROVER JIKA $nextStep TIDAK NULL
       $approvers = FlowRepository::getStepUsers($this->db, $nextStep['id'], $approval['parameters']);
@@ -225,7 +225,7 @@ class ApprovalHandler
 
       // JIKA next step tidak ditemukan, berarti approval sudah selesai
       // TANDAI APPROVAL MENJADI APPROVED
-      ApprovalRepository::update($this->db, $approvalId, 'APPROVED', null);
+      ApprovalRepository::update($this->db, $approvalId, 'APPROVED', null, null);
 
       // Jika next step null, berarti proses sudah selesai
       // Buat history bahwa sudah approval sudah selesai
@@ -304,7 +304,7 @@ class ApprovalHandler
       throw new Exception(ApprovalHandler::$EXC_PERMISSION_DENIED);
 
     // UBAH STATUS APPROVAL MENJADI 'REJECTED'
-    ApprovalRepository::update($this->db, $approvalId, 'REJECTED', null);
+    ApprovalRepository::update($this->db, $approvalId, 'REJECTED', null, null);
 
     // BUAT HISTORY APPROVAL DIREJECT
     ApprovalHistoryRepository::insert(
@@ -344,6 +344,7 @@ class ApprovalHandler
    * menjadi penyebab action ini dieksekusi. Jadi tidak ada pengecekan role approver.
    * $notes : Catatan approval (opsional)
    * $file : Berkas pendukung (opsional)
+   * $parameters : Data parameters baru (opsional, jika tidak diisi maka akan menggunakan parameter sebelumnya)
    */
   public function rejectBySystem($approvalId, $relatedUserId, $notes, $file)
   {
@@ -355,7 +356,7 @@ class ApprovalHandler
     $data = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
 
     // UBAH STATUS APPROVAL MENJADI 'REJECTED'
-    ApprovalRepository::update($this->db, $approvalId, 'REJECTED', null);
+    ApprovalRepository::update($this->db, $approvalId, 'REJECTED', null, null);
 
     // BUAT HISTORY APPROVAL DIREJECT
     ApprovalHistoryRepository::insert(
@@ -389,7 +390,7 @@ class ApprovalHandler
    * $notes : Catatan approval (opsional)
    * $file : Berkas pendukung (opsional)
    */
-  public function reset($approvalId, $userId, $notes, $file)
+  public function reset($approvalId, $userId, $notes, $file, $parameters)
   {
     // AMBIL STATUS APPROVAL TERAKHIR
     $data = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
@@ -399,7 +400,7 @@ class ApprovalHandler
       throw new Exception(ApprovalHandler::$EXC_APPROVAL_NOT_REJECTED);
 
     // UBAH STATUS APPROVAL MENJADI 'ON_PROGRESS'
-    ApprovalRepository::update($this->db, $approvalId, 'ON_PROGRESS', null);
+    ApprovalRepository::update($this->db, $approvalId, 'ON_PROGRESS', null, $parameters);
 
     // PROSES KE STEP SELANJUTNYA
     $this->checkNextStep($approvalId);
