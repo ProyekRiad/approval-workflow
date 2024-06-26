@@ -82,6 +82,18 @@ class FlowRepository
           $stmt->execute([':asset_category_id' => self::getParamValue($approvalParemeters, 'assetCategoryId')]);
           $rows = $stmt->fetchAll(PDO::FETCH_COLUMN | PDO::FETCH_UNIQUE, 0);
           array_push($tmp, ...$rows);
+
+          // Handle origin-asset-user
+        } else if ($data == 'origin-asset-user') {
+          $userId = self::getParamValue($approvalParemeters, 'originAssetUserId');
+          if ($userId)
+            array_push($tmp, $userId);
+
+          // Handle destination-asset-user
+        } else if ($data == 'destination-asset-user') {
+          $userId = self::getParamValue($approvalParemeters, 'destinationAssetUserId');
+          if ($userId)
+            array_push($tmp, $userId);
         }
       }
     }

@@ -48,6 +48,10 @@ class ApprovalHandler
    * - overrideHeadUserId : Bisa diisi dengan user id untuk meng-override approver department-head. System akan mengabaikan 
    *   konfigurasi flow dan akan menggunakan user id yang diberikan sebagai approver.
    * - assetCategoryId : Wajib diisi jika di flow menggunakan step user dengan type SYSTEM_GROUP -> asset-coordinator
+   * - originAssetUserId : Wajib diisi jika di flow menggunakan step user dengan type SYSTEM_GROUP -> origin-asset-user
+   *   diisi dengan id user dari employee yang bersangkutan
+   * - destinationAssetUserId : Wajib diisi jika di flow menggunakan step user dengan type SYSTEM_GROUP -> destination-asset-user
+   *   diisi dengan id user dari employee yang bersangkutan
    */
   public function start($flowType, int $userId, $parameters)
   {
