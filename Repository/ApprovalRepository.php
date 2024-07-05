@@ -22,6 +22,9 @@ WHERE
     $stmt->execute([':id' => $approvalId]);
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
+    if (!$result)
+      throw new \Exception("Approval with ID '$approvalId' not found!");
+
     return [
       'id' => $result['id'],
       'flow_id' => $result['flow_id'],
