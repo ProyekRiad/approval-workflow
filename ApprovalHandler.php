@@ -357,8 +357,6 @@ class ApprovalHandler
     if ($user == null)
       throw new Exception(ApprovalHandler::$EXC_USER_NOT_FOUND);
 
-    $data = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
-
     // UBAH STATUS APPROVAL MENJADI 'REJECTED'
     ApprovalRepository::update($this->db, $approvalId, 'REJECTED', null, null);
 
@@ -442,5 +440,21 @@ class ApprovalHandler
       // SIMPAN APPROVER KE DATABASE, HAPUS DULU DAFTAR APPROVER SEBELUMNYA
       ApprovalRepository::assignApprovers($this->db, $approval['id'], $approvers);
     }
+  }
+
+  public function getNextSteps($approvalId): mixed
+  {
+    $currentStatus = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+    $steps = $this->getAllStepInfo($approvalId);
+
+    $foundCurrent = false;
+    foreach ($steps as $step) {
+      if ($foundCurrent)
+        return $step;
+      if ($step['id'] === $currentStatus['flow_step_id'])
+        $foundCurrent = true;
+    }
+
+    return null;
   }
 }
