@@ -394,12 +394,12 @@ class ApprovalHandler
    */
   public function reset($approvalId, $userId, $notes, $file, $parameters)
   {
-    // AMBIL STATUS APPROVAL TERAKHIR
-    $data = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
-
-    // TOLAK JIKA DOKUMEN BUKAN DOKUMEN REJECT
-    if ($data['status'] != 'REJECTED')
-      throw new Exception(ApprovalHandler::$EXC_APPROVAL_NOT_REJECTED);
+    // NOTE: Didisable karena ada kebutuhan meskipun sudah complete, bisa di-reset lagi
+    // - AMBIL STATUS APPROVAL TERAKHIR
+    // $data = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+    // - TOLAK JIKA DOKUMEN BUKAN DOKUMEN REJECT
+    // if ($data['status'] != 'REJECTED')
+    //   throw new Exception(ApprovalHandler::$EXC_APPROVAL_NOT_REJECTED);
 
     // UBAH STATUS APPROVAL MENJADI 'ON_PROGRESS'
     ApprovalRepository::update($this->db, $approvalId, 'ON_PROGRESS', null, $parameters);
