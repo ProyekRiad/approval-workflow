@@ -97,7 +97,7 @@ UPDATE
 `wf_approvals`
 SET
 `flow_step_id` = :flow_step_id,
-`status` = :status
+`status` = :status,
 `parameters` = :parameters
 WHERE
 `id` = :approval_id

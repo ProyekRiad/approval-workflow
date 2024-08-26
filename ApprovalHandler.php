@@ -171,28 +171,25 @@ class ApprovalHandler
 
     // LOOP STEPS UNTUK MENGAMBIL STEP SELANJUTNYA
     $currentStepId = $approval['flow_step_id'];
+    $currentStep = $currentStepId ? array_column($steps, null, 'id')[$currentStepId] : null;
+    $currentStepOrder = $currentStep ? $currentStep['order'] : -1;
     $nextStep = null;
-    if ($currentStepId == null) {
-      $nextStep = count($steps) > 0 ? $steps[0] : null;
-    } else {
-      $currentStep = array_column($steps, null, 'id')[$currentStepId];
-      foreach ($steps as $step) {
-        if ($step['order'] > $currentStep['order']) {
-          $condition = trim($step['condition'] ?? '');
+    foreach ($steps as $step) {
+      if ($step['order'] > $currentStepOrder) {
+        $condition = trim($step['condition'] ?? '');
 
-          // Jika kondisi tidak diisi, maka langsung gunakan step sebagai next step
-          if (is_null($condition) || $condition == '') {
-            $nextStep = $step;
-            break;
-          }
+        // Jika kondisi tidak diisi, maka langsung gunakan step sebagai next step
+        if (is_null($condition) || $condition == '') {
+          $nextStep = $step;
+          break;
+        }
 
-          // Check kondisi, jika tidak memenuhi maka skip
-          $expressionLanguage = new ExpressionLanguage();
-          $r = $expressionLanguage->evaluate($condition, $approval['parameters']);
-          if (is_bool($r) && $r == true) {
-            $nextStep = $step;
-            break;
-          }
+        // Check kondisi, jika tidak memenuhi maka skip
+        $expressionLanguage = new ExpressionLanguage();
+        $r = $expressionLanguage->evaluate($condition, $approval['parameters']);
+        if (is_bool($r) && $r == true) {
+          $nextStep = $step;
+          break;
         }
       }
     }
