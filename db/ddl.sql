@@ -99,13 +99,15 @@ CREATE TABLE `wf_approval_histories` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `approval_id` int(11) NOT NULL,
   `user_id` int(11) DEFAULT NULL,
+  `flow_step_id` int(11) DEFAULT NULL,
   `title` varchar(100) DEFAULT NULL,
   `flag` varchar(100) DEFAULT NULL,
   `notes` varchar(100) DEFAULT NULL,
   `file` varchar(100) DEFAULT NULL,
   `date_time` int(11) DEFAULT NULL,
-  `date_time2` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `wf_approval_histories_FK` (`approval_id`),
-  CONSTRAINT `wf_approval_histories_FK` FOREIGN KEY (`approval_id`) REFERENCES `wf_approvals` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE = InnoDB AUTO_INCREMENT = 6573 DEFAULT CHARSET = utf8mb4;
+  KEY `wf_approval_histories_wf_flow_steps_FK` (`flow_step_id`),
+  CONSTRAINT `wf_approval_histories_FK` FOREIGN KEY (`approval_id`) REFERENCES `wf_approvals` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `wf_approval_histories_wf_flow_steps_FK` FOREIGN KEY (`flow_step_id`) REFERENCES `wf_flow_steps` (`id`) ON UPDATE CASCADE
+) ENGINE = InnoDB AUTO_INCREMENT = 6612 DEFAULT CHARSET = utf8mb4;

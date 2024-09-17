@@ -72,6 +72,7 @@ class ApprovalHandler
     ApprovalHistoryRepository::insert(
       $this->db,
       $approvalId,
+      null,
       $userId,
       'Permintaan persetujuan dibuat',
       HFLAG_CREATED,
@@ -87,10 +88,11 @@ class ApprovalHandler
       // UBAH STATUS APPROVAL MENJADI 'APPROVED'
       ApprovalRepository::update($this->db, $approvalId, 'APPROVED', null, null);
 
-      // BUAT HISTORY APPROVAL DIREJECT
+      // BUAT HISTORY APPROVAL DIANGGAP SELESAI KARENAN NON AKTIF
       ApprovalHistoryRepository::insert(
         $this->db,
         $approvalId,
+        null,
         $userId,
         "Persetujuan dianggap selesai karena flow persetujuan NON-AKTIF.",
         HFLAG_DONE,
@@ -134,10 +136,11 @@ class ApprovalHandler
     if (!ApprovalRepository::isUserHasPermission($this->db, $approvalId, $userId))
       throw new Exception(ApprovalHandler::$EXC_PERMISSION_DENIED);
 
-    // BUAT HISTORY APPROVAL
+    // BUAT HISTORY APPROVAL DISETUJUI
     ApprovalHistoryRepository::insert(
       $this->db,
       $approvalId,
+      $data['flow_step_id'],
       $userId,
       "Persetujuan pada tahap {$data['flow_step_name']} disetujui oleh {$user['name']}.",
       HFLAG_APPROVED,
@@ -210,6 +213,7 @@ class ApprovalHandler
         ApprovalHistoryRepository::insert(
           $this->db,
           $approvalId,
+          $nextStep['id'],
           null,
           "Proses {$nextStep['name']} dilewati karena tidak ada pemberi persetujuan di tahap ini.",
           HFLAG_SKIP,
@@ -234,6 +238,7 @@ class ApprovalHandler
       ApprovalHistoryRepository::insert(
         $this->db,
         $approvalId,
+        null,
         null,
         'Proses persetujuan selesai.',
         HFLAG_DONE,
@@ -311,6 +316,7 @@ class ApprovalHandler
     ApprovalHistoryRepository::insert(
       $this->db,
       $approvalId,
+      $data['flow_step_id'],
       $userId,
       "Persetujuan pada tahap {$data['flow_step_name']} ditolak oleh {$user['name']}.",
       HFLAG_REJECTED,
@@ -354,6 +360,9 @@ class ApprovalHandler
     if ($user == null)
       throw new Exception(ApprovalHandler::$EXC_USER_NOT_FOUND);
 
+    // AMBIL STATUS APPROVAL TERAKHIR
+    $data = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+
     // UBAH STATUS APPROVAL MENJADI 'REJECTED'
     ApprovalRepository::update($this->db, $approvalId, 'REJECTED', null, null);
 
@@ -361,6 +370,7 @@ class ApprovalHandler
     ApprovalHistoryRepository::insert(
       $this->db,
       $approvalId,
+      $data['flow_step_id'],
       $relatedUserId,
       "Persetujuan ditolak dan direset oleh System.",
       HFLAG_SYSTEM_REJECTED,
@@ -404,10 +414,11 @@ class ApprovalHandler
     // PROSES KE STEP SELANJUTNYA
     $this->checkNextStep($approvalId);
 
-    // BUAT HISTORY APPROVAL DIREJECT
+    // BUAT HISTORY APPROVAL DIMULAI KEMBALI
     ApprovalHistoryRepository::insert(
       $this->db,
       $approvalId,
+      null,
       $userId,
       "Pengajuan ulang persetujuan dimulai",
       HFLAG_RESET,
@@ -453,5 +464,117 @@ class ApprovalHandler
     }
 
     return null;
+  }
+
+  /**
+   * Fungsi ini digunakan untuk mengambil path approval dari awal hingga selesai berikut dengan
+   * status approval, approver, info step berjalan, dan tahapan approval selanjutnya (yang belum dieksekusi).
+   * 
+   * $approvalId : ID approval yang didapatkan saat menginisiasi approval
+   */
+  public function getApprovalPath($approvalId): array
+  {
+    // AMBIL STATUS APPROVAL TERAKHIR
+    $data = ApprovalRepository::getCurrentStatus($this->db, $approvalId);
+
+    // AMBIL DAFTAR HISTORY YANG MENGGAMBARKAN 1 KELOMPOK TAHAPAN APPROVAL TERBARU 
+    $lastHistories = [];
+    foreach (ApprovalHistoryRepository::getAllByApprovalId($this->db, $approvalId) as $history) {
+      if (in_array($history['flag'], [HFLAG_APPROVED, HFLAG_REJECTED, HFLAG_SYSTEM_REJECTED]))
+        array_push($lastHistories, $history);
+
+      if (in_array($history['flag'], [HFLAG_CREATED, HFLAG_RESET]))
+        $lastHistories = [];
+    }
+
+    // AMBIL DATA STEP APPROVAL DARI AWAL SAMPAI AKHIR
+    $approvalSteps = $this->getAllStepInfo($approvalId);
+
+
+    // MENENTUKAN INDEX CURRENT STEP
+    $tmp = [];
+    $currentStepIndex = -1;
+    $ct = 0;
+    foreach ($approvalSteps as $approvalStep) {
+      if ($approvalStep['id'] == $data['flow_step_id']) {
+        $currentStepIndex = $ct;
+      }
+
+      array_push($tmp, $approvalStep);
+
+      $ct++;
+    }
+    $approvalSteps = $tmp;
+
+    // MENGATUR TIPE STEP DAN MEMADUKAN DENGAN HISTORY 
+    $tmp = [];
+    $ct = 0;
+    foreach ($approvalSteps as $approvalStep) {
+      $approvalStep['type'] = 'unknown';
+      $approvalStep['approver_id'] = null;
+      $approvalStep['approver_email'] = null;
+      $approvalStep['approver_username'] = null;
+      $approvalStep['approver_name'] = null;
+      $approvalStep['approval_time'] = null;
+
+      // SET STEP TYPE
+      if ($ct < $currentStepIndex)
+        $approvalStep['type'] = 'passed';
+      if ($ct == $currentStepIndex)
+        $approvalStep['type'] = 'current';
+      if ($ct > $currentStepIndex)
+        $approvalStep['type'] = 'incoming';
+
+      // PADUKAN DENGAN DATA HISTORY  (UNTUK MENGUBAH TYPE passed MENJADI YANG SEHARUSNYA SESUAI HISTORY)
+      $filteredHistories = array_filter($lastHistories, function ($item) use ($approvalStep) {
+        return $item['flow_step_id'] == $approvalStep['id'];
+      });
+      $history = null;
+      if (count($filteredHistories) > 0)
+        $history = array_values($filteredHistories)[0];
+
+      if ($history) {
+        $approvalStep['type'] = $history['flag'];
+      }
+
+      array_push($tmp, $approvalStep);
+
+      $ct++;
+    }
+    $approvalSteps = $tmp;
+
+    // MEMADUKAN DATA HISTORY DENGAN DATA STEP YANG DIOLAH SEBELUMNYA
+    // - MAAP DATA HISTORY
+    $hList = array_map(function ($item) {
+      return [
+        'id' => $item['flow_step_id'],
+        'order' => $item['flow_step_order'],
+        'flow_id' => $item['flow_step_flow_id'],
+        'name' => $item['flow_step_name'],
+        'condition' => $item['flow_step_condition'],
+        'approvers' => [],
+        'type' => $item['flag'],
+        'approver_id' => $item['user_id'],
+        'approver_email' => $item['user_email'],
+        'approver_username' => $item['user_username'],
+        'approver_name' => $item['user_name'],
+        'approval_time' => $item['date_time'],
+      ];
+    }, $lastHistories);
+    // - BUANG DATA STEP SELAIN incoming DAN current KARENA AKAN DIGANTI DENGAN DATA $hList 
+    $cnList = array_filter($approvalSteps, function ($item) {
+      return in_array($item['type'], ['incoming', 'current']);
+    });
+
+    // MERGE DATA AKHIR HISTORY DAN DATA AKHIR STEP
+    // TAPI, JIKA STATUS DATA SUDAH APPROVED DATA STEP incoming DAN current DIHAPUS SAJA
+    // KARENA BISA JADI STEP TERSEBUT DITAMBAHKAN KETIKA APPROVAL SUDAH APPROVED
+    if ($data['status'] == 'APPROVED') {
+      $tmp = $hList;
+    } else {
+      $tmp = array_merge($hList, array_values($cnList));
+    }
+
+    return $tmp;
   }
 }
