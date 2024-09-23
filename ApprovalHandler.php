@@ -515,6 +515,8 @@ class ApprovalHandler
       $approvalStep['approver_email'] = null;
       $approvalStep['approver_username'] = null;
       $approvalStep['approver_name'] = null;
+      $approvalStep['approval_notes'] = null;
+      $approvalStep['approval_file'] = null;
       $approvalStep['approval_time'] = null;
 
       // SET STEP TYPE
@@ -558,6 +560,8 @@ class ApprovalHandler
         'approver_email' => $item['user_email'],
         'approver_username' => $item['user_username'],
         'approver_name' => $item['user_name'],
+        'approval_notes' => $item['notes'],
+        'approval_file' => $item['file'],
         'approval_time' => $item['date_time'],
       ];
     }, $lastHistories);
