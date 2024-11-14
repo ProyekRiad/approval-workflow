@@ -2,23 +2,25 @@
 
 namespace Idemas\ApprovalWorkflow\Repository;
 
+use Idemas\ApprovalWorkflow\Utilities\Utils;
 use PDO;
 
 class ApprovalRepository
 {
   public static function getCurrentStatus($db, $approvalId)
   {
-    $stmt = $db->prepare('
-SELECT
-	a.*,
-	fs.`name` as `step_name`
-FROM
-	`wf_approvals` a
-LEFT JOIN `wf_flow_steps` fs ON
-	fs.`id` = a.`flow_step_id`
-WHERE
-  a.`id` = :id
-');
+    $selectSql = Utils::GetQueryFactory($db)
+      ->newSelect()
+      ->cols([
+        'a.*',
+        'fs.name as step_name'
+      ])
+      ->from('wf_approvals a')
+      ->leftJoin('wf_flow_steps fs', 'fs.id = a.flow_step_id')
+      ->where('a.id = :id')
+      ->getStatement();
+
+    $stmt = $db->prepare($selectSql);
     $stmt->execute([':id' => $approvalId]);
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -37,15 +39,17 @@ WHERE
 
   public static function getRunningApprovals($db, $companyId)
   {
-    $stmt = $db->prepare('
-SELECT
-	`a`.*
-FROM
-	`wf_approvals` a
-WHERE 
-  `a`.`company_id` = :companyId AND
-  `a`.`status` = \'ON_PROGRESS\'
-');
+    $selectSql = Utils::GetQueryFactory($db)
+      ->newSelect()
+      ->cols([
+        'a.*'
+      ])
+      ->from('wf_approvals a')
+      ->leftJoin('wf_flow_steps fs', 'fs.id = a.flow_step_id')
+      ->where('a.company_id = :companyId AND a.status = \'ON_PROGRESS\'')
+      ->getStatement();
+
+    $stmt = $db->prepare($selectSql);
     $stmt->execute([':companyId' => $companyId]);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -65,21 +69,20 @@ WHERE
 
   public static function insert($db, $companyId, $flowId, $userId, $parameters): int
   {
-    $stmt = $db->prepare('
-INSERT
-	INTO
-	`wf_approvals` (
-    `company_id`,
-    `flow_id`,
-	  `status`,
-	  `user_id`,
-	  `parameters`
-  )
-VALUES (:company_id, :flow_id,
-\'ON_PROGRESS\',
-:user_id,
-:parameters)
-    ');
+    $insertSql = Utils::GetQueryFactory($db)
+      ->newInsert()
+      ->into('wf_approvals')
+      ->cols([
+        'company_id',
+        'flow_id',
+        'status',
+        'user_id',
+        'parameters',
+      ])
+      ->set('status', '\'ON_PROGRESS\'')
+      ->getStatement();
+
+    $stmt = $db->prepare($insertSql);
     $stmt->execute([
       ':company_id' => $companyId,
       ':flow_id' => $flowId,
@@ -89,19 +92,22 @@ VALUES (:company_id, :flow_id,
 
     return $db->lastInsertId();
   }
+
   public static function update($db, $approvalId, $status, $flowStepId, $parameters)
   {
     if ($parameters) {
-      $stmt = $db->prepare('
-UPDATE
-`wf_approvals`
-SET
-`flow_step_id` = :flow_step_id,
-`status` = :status,
-`parameters` = :parameters
-WHERE
-`id` = :approval_id
-  ');
+      $updateSql = Utils::GetQueryFactory($db)
+        ->newUpdate()
+        ->table('wf_approvals')
+        ->cols([
+          'flow_step_id',
+          'status',
+          'parameters',
+        ])
+        ->where('id = :approval_id')
+        ->getStatement();
+
+      $stmt = $db->prepare($updateSql);
       $stmt->execute([
         ':approval_id' => $approvalId,
         ':status' => $status,
@@ -109,15 +115,17 @@ WHERE
         ':parameters' => json_encode($parameters)
       ]);
     } else {
-      $stmt = $db->prepare('
-UPDATE
-`wf_approvals`
-SET
-`flow_step_id` = :flow_step_id,
-`status` = :status
-WHERE
-`id` = :approval_id
-  ');
+      $updateSql = Utils::GetQueryFactory($db)
+        ->newUpdate()
+        ->table('wf_approvals')
+        ->cols([
+          'flow_step_id',
+          'status',
+        ])
+        ->where('id = :approval_id')
+        ->getStatement();
+
+      $stmt = $db->prepare($updateSql);
       $stmt->execute([
         ':approval_id' => $approvalId,
         ':status' => $status,
@@ -128,15 +136,16 @@ WHERE
 
   public static function isUserHasPermission($db, $approvalId, $userId): bool
   {
-    $stmt = $db->prepare('
-SELECT
-	*
-FROM
-	`wf_approval_active_users` waau
-WHERE
-	`waau`.`approval_id` = :approval_id
-	AND `waau`.`user_id` = :user_id
-');
+    $selectSql = Utils::GetQueryFactory($db)
+      ->newSelect()
+      ->cols([
+        'waau.*'
+      ])
+      ->from('wf_approval_active_users waau')
+      ->where('waau.approval_id = :approval_id AND waau.user_id = :user_id')
+      ->getStatement();
+
+    $stmt = $db->prepare($selectSql);
     $stmt->execute([':approval_id' => $approvalId, ':user_id' => $userId]);
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -145,37 +154,40 @@ WHERE
 
   public static function getCurrentApprovers($db, $approvalId): array
   {
-    $stmt = $db->prepare('
-SELECT
-	u.id as user_id,
-	u.username,
-	u.email,
-	u.fcmToken
-FROM
-	`wf_approval_active_users` waau
-INNER JOIN `user` u ON
-	u.id = waau.user_id
-WHERE
-	`waau`.`approval_id` = :approval_id
-');
+    $selectSql = Utils::GetQueryFactory($db)
+      ->newSelect()
+      ->cols([
+        'u.id as user_id',
+        'u.username',
+        'u.email',
+        'u.fcmToken'
+      ])
+      ->from('wf_approval_active_users waau')
+      ->innerJoin('user u', 'u.id = waau.user_id')
+      ->where('waau.approval_id = :approval_id')
+      ->getStatement();
+
+    $stmt = $db->prepare($selectSql);
     $stmt->execute([':approval_id' => $approvalId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
 
   public static function getOwner($db, $approvalId): array
   {
-    $stmt = $db->prepare('
-SELECT
-	u.id as user_id,
-	u.username,
-	u.email,
-	u.fcmToken
-FROM
-	`user` u
-	INNER JOIN `wf_approvals` wa ON wa.user_id = u.id  
-WHERE
-	`wa`.`id` = :approval_id
-');
+    $selectSql = Utils::GetQueryFactory($db)
+      ->newSelect()
+      ->cols([
+        'u.id as user_id',
+        'u.username',
+        'u.email',
+        'u.fcmToken'
+      ])
+      ->from('user u')
+      ->innerJoin('wf_approvals wa', 'wa.user_id = u.id')
+      ->where('wa.id = :approval_id')
+      ->getStatement();
+
+    $stmt = $db->prepare($selectSql);
     $stmt->execute([':approval_id' => $approvalId]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
   }
@@ -184,7 +196,13 @@ WHERE
   public static function assignApprovers($db, $approvalId, $approvers)
   {
     // Hapus semua data approver sebelumnya
-    $stmt = $db->prepare('DELETE FROM `wf_approval_active_users` WHERE `approval_id` = :approval_id');
+    $deleteSql = Utils::GetQueryFactory($db)
+      ->newDelete()
+      ->from('wf_approval_active_users')
+      ->where('approval_id = :approval_id')
+      ->getStatement();
+
+    $stmt = $db->prepare($deleteSql);
     $stmt->execute([':approval_id' => $approvalId]);
 
     // Assign approvers yang baru

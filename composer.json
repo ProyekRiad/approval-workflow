@@ -12,6 +12,7 @@
         }
     ],
     "require": {
-        "symfony/expression-language": "^5.4"
+        "symfony/expression-language": "^5.4",
+        "aura/sqlquery": "^3.0"
     }
 }

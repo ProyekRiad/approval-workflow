@@ -2,20 +2,40 @@
 
 namespace Idemas\ApprovalWorkflow\Repository;
 
+use Idemas\ApprovalWorkflow\Utilities\Utils;
 use PDO;
 
 class FlowRepository
 {
   public static function getByType($db, $companyId, $type)
   {
-    $stmt = $db->prepare('SELECT * FROM `wf_flows` WHERE `company_id` = :companyId AND `type` = :type');
+    $selectSql = Utils::GetQueryFactory($db)
+      ->newSelect()
+      ->cols([
+        'wf.*',
+      ])
+      ->from('wf_flows wf')
+      ->where('wf.company_id = :companyId AND wf.type = :type')
+      ->getStatement();
+
+    $stmt = $db->prepare($selectSql);
     $stmt->execute([':companyId' => $companyId, ':type' => $type]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
   }
 
   public static function getStepsById($db, $flowId)
   {
-    $stmt = $db->prepare('SELECT * FROM `wf_flow_steps` WHERE `flow_id` = :flow_id ORDER BY `order`');
+    $selectSql = Utils::GetQueryFactory($db)
+      ->newSelect()
+      ->cols([
+        'wfs.*',
+      ])
+      ->from('wf_flow_steps wfs')
+      ->where('wfs.flow_id = :flow_id')
+      ->orderBy(['wfs.order'])
+      ->getStatement();
+
+    $stmt = $db->prepare($selectSql);
     $stmt->execute([':flow_id' => $flowId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
@@ -29,7 +49,17 @@ class FlowRepository
 
   public static function getStepUsers($db, $stepId, $approvalParemeters)
   {
-    $stmt = $db->prepare('SELECT * FROM `wf_flow_step_approvers` WHERE `flow_step_id` = :flow_step_id');
+    $qf = Utils::GetQueryFactory($db);
+
+    $selectSql = $qf->newSelect()
+      ->cols([
+        'wf.*',
+      ])
+      ->from('wf_flow_step_approvers wf')
+      ->where('wf.flow_step_id = :flow_step_id')
+      ->getStatement();
+
+    $stmt = $db->prepare($selectSql);
     $stmt->execute([':flow_step_id' => $stepId]);
     $approvers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -43,7 +73,15 @@ class FlowRepository
 
         // Handle Type GROUP
       } else if ($approver['type'] == 'GROUP') {
-        $stmt = $db->prepare('SELECT user_id FROM `wf_approver_group_users` WHERE `approver_group_id` = :approver_group_id');
+        $selectSql = $qf->newSelect()
+          ->cols([
+            't.user_id',
+          ])
+          ->from('wf_approver_group_users t')
+          ->where('t.approver_group_id = :approver_group_id')
+          ->getStatement();
+
+        $stmt = $db->prepare($selectSql);
         $stmt->execute([':approver_group_id' => $approver['data']]);
         $rows = $stmt->fetchAll(PDO::FETCH_COLUMN | PDO::FETCH_UNIQUE, 0);
         array_push($tmp, ...$rows);
@@ -58,7 +96,15 @@ class FlowRepository
           if ($overrideUserId) {
             array_push($tmp, $overrideUserId);
           } else {
-            $stmt = $db->prepare('SELECT user_id FROM `wf_department_users` WHERE `department_id` = :department_id AND `job_level` = \'MANAGER\'');
+            $selectSql = $qf->newSelect()
+              ->cols([
+                't.user_id',
+              ])
+              ->from('wf_department_users t')
+              ->where('t.department_id = :department_id AND t.job_level = \'MANAGER\'')
+              ->getStatement();
+
+            $stmt = $db->prepare($selectSql);
             $stmt->execute([':department_id' => self::getParamValue($approvalParemeters, 'departmentId')]);
             $rows = $stmt->fetchAll(PDO::FETCH_COLUMN | PDO::FETCH_UNIQUE, 0);
             array_push($tmp, ...$rows);
@@ -70,7 +116,15 @@ class FlowRepository
           if ($overrideUserId) {
             array_push($tmp, $overrideUserId);
           } else {
-            $stmt = $db->prepare('SELECT user_id FROM `wf_department_users` WHERE `department_id` = :department_id AND `job_level` = \'HEAD\'');
+            $selectSql = $qf->newSelect()
+              ->cols([
+                't.user_id',
+              ])
+              ->from('wf_department_users t')
+              ->where('t.department_id = :department_id AND t.job_level = \'HEAD\'')
+              ->getStatement();
+
+            $stmt = $db->prepare($selectSql);
             $stmt->execute([':department_id' => self::getParamValue($approvalParemeters, 'departmentId')]);
             $rows = $stmt->fetchAll(PDO::FETCH_COLUMN | PDO::FETCH_UNIQUE, 0);
             array_push($tmp, ...$rows);
@@ -78,7 +132,15 @@ class FlowRepository
 
           // Handle asset-coordinator
         } else if ($data == 'asset-coordinator') {
-          $stmt = $db->prepare('SELECT user_id FROM `wf_asset_coordinator_users` WHERE `asset_category_id` = :asset_category_id');
+          $selectSql = $qf->newSelect()
+            ->cols([
+              't.user_id',
+            ])
+            ->from('wf_asset_coordinator_users t')
+            ->where('t.sset_category_id = :asset_category_id')
+            ->getStatement();
+
+          $stmt = $db->prepare($selectSql);
           $stmt->execute([':asset_category_id' => self::getParamValue($approvalParemeters, 'assetCategoryId')]);
           $rows = $stmt->fetchAll(PDO::FETCH_COLUMN | PDO::FETCH_UNIQUE, 0);
           array_push($tmp, ...$rows);
