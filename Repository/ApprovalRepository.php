@@ -207,7 +207,16 @@ class ApprovalRepository
 
     // Assign approvers yang baru
     if ($approvers && count($approvers) > 0) {
-      $stmt = $db->prepare("INSERT INTO `wf_approval_active_users` (`approval_id`, `user_id`) VALUES (:approval_id, :user_id)");
+      $insertSql = Utils::GetQueryFactory($db)
+        ->newInsert()
+        ->into('wf_approval_active_users')
+        ->cols([
+          'approval_id',
+          'user_id',
+        ])
+        ->getStatement();
+
+      $stmt = $db->prepare($insertSql);
       foreach ($approvers as $approver) {
         $stmt->execute([':approval_id' => $approvalId, ':user_id' => $approver['id']]);
       }
