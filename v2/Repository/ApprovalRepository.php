@@ -37,36 +37,6 @@ class ApprovalRepository
     ];
   }
 
-  public static function getRunningApprovals($db, $companyId)
-  {
-    $selectSql = Utils::GetQueryFactory($db)
-      ->newSelect()
-      ->cols([
-        'a.*'
-      ])
-      ->from('wf_approvals a')
-      ->leftJoin('wf_flow_steps fs', 'fs.id = a.flow_step_id')
-      ->where('a.company_id = :companyId AND a.status = \'ON_PROGRESS\'')
-      ->getStatement();
-
-    $stmt = $db->prepare($selectSql);
-    $stmt->execute([':companyId' => $companyId]);
-    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    $tmp = [];
-    foreach ($results as $result) {
-      array_push($tmp, [
-        'id' => $result['id'],
-        'flow_id' => $result['flow_id'],
-        'status' => $result['status'],
-        'flow_step_id' => $result['flow_step_id'],
-        'parameters' => $result['parameters'] ? json_decode($result['parameters'], true) : null,
-      ]);
-    }
-
-    return $tmp;
-  }
-
   public static function insert($db, $companyId, $flowId, $userId, $parameters): int
   {
     $insertSql = Utils::GetQueryFactory($db)
@@ -210,9 +180,10 @@ class ApprovalRepository
     return $stmt->fetch(PDO::FETCH_ASSOC);
   }
 
-  // Mengambil daftar step approval yang cocok dengan approval yang dipilih
-  public static function getMatchedFlowSteps($db, $approvalId): array
-  {// Ambil data approval
+  // Menghapus data approver yang lama, dan menggantikan dengan approver yang baru
+  public static function buildApprovalSteps($db, $approvalId)
+  {
+    // Ambil data approval
     $approval = self::getCurrentStatus($db, $approvalId);
     $parameters = $approval['parameters'];
 
@@ -238,8 +209,8 @@ class ApprovalRepository
       $startFee = is_numeric($flowStep['start_fee']) ? floatval($flowStep['start_fee']) : 0;
       $endFee = is_numeric($flowStep['end_fee']) ? floatval($flowStep['end_fee']) : 0;
 
-      $amount = $parameters['amount'];
-      if ($amount >= $startFee && $amount <= $endFee || ($startFee == 0 && $endFee == 0)) {
+      $amount = Utils::getParamValue($parameters, 'amount') ?? 0;
+      if (($amount >= $startFee && $amount <= $endFee) || $amount > $endFee || ($startFee == 0 && $endFee == 0)) {
         $maxId = $flowStep['id'];
       }
     }
@@ -256,14 +227,6 @@ class ApprovalRepository
       if ($maxId == $flowStep['id'])
         $maxIdFound = true;
     }
-
-    return $approvalSteps;
-  }
-
-  // Menghapus data approver yang lama, dan menggantikan dengan approver yang baru
-  public static function buildApprovalSteps($db, $approvalId)
-  {
-    $approvalSteps = self::getMatchedFlowSteps($db, $approvalId);
 
     // Hapus semua data step sebelumnya
     $deleteSql = Utils::GetQueryFactory($db)
@@ -308,37 +271,6 @@ class ApprovalRepository
           'sla' => $approvalStep['sla'],
           'category' => $approvalStep['category'],
         ]);
-      }
-    }
-  }
-
-  // Menghapus data approver yang lama, dan menggantikan dengan approver yang baru
-  public static function assignApprovers($db, $approvalId, $approvers)
-  {
-    // Hapus semua data approver sebelumnya
-    $deleteSql = Utils::GetQueryFactory($db)
-      ->newDelete()
-      ->from('wf_approval_active_users')
-      ->where('approval_id = :approval_id')
-      ->getStatement();
-
-    $stmt = $db->prepare($deleteSql);
-    $stmt->execute([':approval_id' => $approvalId]);
-
-    // Assign approvers yang baru
-    if ($approvers && count($approvers) > 0) {
-      $insertSql = Utils::GetQueryFactory($db)
-        ->newInsert()
-        ->into('wf_approval_active_users')
-        ->cols([
-          'approval_id',
-          'user_id',
-        ])
-        ->getStatement();
-
-      $stmt = $db->prepare($insertSql);
-      foreach ($approvers as $approver) {
-        $stmt->execute([':approval_id' => $approvalId, ':user_id' => $approver['id']]);
       }
     }
   }

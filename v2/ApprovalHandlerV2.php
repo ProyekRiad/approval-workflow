@@ -7,7 +7,6 @@ use Idemas\ApprovalWorkflow\v2\Repository\ApprovalHistoryRepository;
 use Idemas\ApprovalWorkflow\v2\Repository\ApprovalRepository;
 use Idemas\ApprovalWorkflow\v2\Repository\FlowRepository;
 use Idemas\ApprovalWorkflow\v2\Repository\UserRepository;
-use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
 
 use const Idemas\ApprovalWorkflow\v2\Repository\HFLAG_APPROVED;
 use const Idemas\ApprovalWorkflow\v2\Repository\HFLAG_CREATED;

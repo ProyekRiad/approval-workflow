@@ -15,4 +15,11 @@ class Utils
 
     return new QueryFactory($driver);
   }
+
+  public static function getParamValue($params, $key)
+  {
+    if (!$params)
+      return null;
+    return array_key_exists($key, $params) ? $params[$key] : null;
+  }
 }
