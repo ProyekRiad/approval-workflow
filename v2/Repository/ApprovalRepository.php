@@ -126,9 +126,10 @@ class ApprovalRepository
     $selectSql = Utils::GetQueryFactory($db)
       ->newSelect()
       ->cols([
-        'was.*'
+        'wa.*'
       ])
-      ->from('wf2_approval_steps was')
+      ->from('wf2_approvals wa')
+      ->innerJoin('wf2_approval_steps was', 'wa.id = was.approval_id AND wa.approval_step_id = was.id')
       ->where('was.approval_id = :approval_id AND was.user_id = :user_id')
       ->getStatement();
 
