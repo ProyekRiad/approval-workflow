@@ -501,4 +501,9 @@ class ApprovalHandlerV2
 
     return $tmp;
   }
+
+  public function getApprovalHistories($approvalId): array
+  {
+    return ApprovalHistoryRepository::getAllByApprovalId($this->db, $approvalId);
+  }
 }
