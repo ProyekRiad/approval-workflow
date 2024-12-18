@@ -502,6 +502,11 @@ class ApprovalHandlerV2
     return $tmp;
   }
 
+  /**
+   * Fungsi ini digunakan untuk mengambil history approval.
+   * 
+   * $approvalId : ID approval yang didapatkan saat menginisiasi approval
+   */
   public function getApprovalHistories($approvalId): array
   {
     return ApprovalHistoryRepository::getAllByApprovalId($this->db, $approvalId);
