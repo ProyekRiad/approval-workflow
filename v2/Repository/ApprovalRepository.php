@@ -267,8 +267,8 @@ class ApprovalRepository
           'company_id' => $approvalStep['company_id'],
           'user_id' => $approvalStep['user_id'],
           'level' => $approvalStep['level'],
-          'start_fee' => $approvalStep['start_fee'] ?? 0,
-          'end_fee' => $approvalStep['end_fee'] ?? 0,
+          'start_fee' => is_numeric($approvalStep['start_fee']) ? $approvalStep['start_fee'] : 0,
+          'end_fee' => is_numeric($approvalStep['end_fee']) ? $approvalStep['end_fee'] : 0,
           'sla' => $approvalStep['sla'],
           'category' => $approvalStep['category'],
         ]);
